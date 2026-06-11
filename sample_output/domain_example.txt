@@ -1,0 +1,21 @@
+Enriching google.com (detected type: domain)...
+
+============================================================
+IOC ENRICHMENT REPORT — google.com (DOMAIN)
+============================================================
+
+--- VirusTotal ---
+  Malicious votes:  0
+  Suspicious votes: 0
+  Harmless votes:   64
+  Registrar:        MarkMonitor Inc.
+  Reputation score: 706
+  Resolved IP:      64.233.179.138
+
+--- Resolved IP Enrichment (64.233.179.138) ---
+  Abuse confidence: 0%
+  Total reports:    0
+  ISP:              Google LLC
+
+============================================================
+
