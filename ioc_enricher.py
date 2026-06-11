@@ -40,6 +40,66 @@ def check_abuseipdb(ip):
         "usage_type": data.get("usageType", "N/A"),
     }
 
+
+def detect_ioc_type(ioc):
+    """Determine if input is an IP address or domain."""
+    parts = ioc.split(".")
+    if len(parts) == 4 and all(p.isdigit() for p in parts):
+        return "ip"
+    return "domain"
+
+def check_virustotal_domain(domain):
+    """Query VirusTotal for domain reputation."""
+    url = f"https://www.virustotal.com/api/v3/domains/{domain}"
+    headers = {"x-apikey": VIRUSTOTAL_API_KEY}
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        return {"error": f"VirusTotal returned {response.status_code}"}
+    data = response.json()
+    attrs = data["data"]["attributes"]
+    stats = attrs.get("last_analysis_stats", {})
+    resolved_ip = None
+    for record in attrs.get("last_dns_records", []):
+        if record.get("type") == "A":
+            resolved_ip = record.get("value")
+            break
+    return {
+        "source": "VirusTotal",
+        "malicious_votes": stats.get("malicious", 0),
+        "suspicious_votes": stats.get("suspicious", 0),
+        "harmless_votes": stats.get("harmless", 0),
+        "registrar": attrs.get("registrar", "N/A"),
+        "reputation": attrs.get("reputation", "N/A"),
+        "resolved_ip": resolved_ip,
+    }
+
+def display_domain_results(domain, vt_result, ip_results=None):
+    """Print unified domain enrichment report."""
+    print(f"\n{'='*60}")
+    print(f"IOC ENRICHMENT REPORT — {domain} (DOMAIN)")
+    print(f"{'='*60}")
+
+    print(f"\n--- VirusTotal ---")
+    if "error" in vt_result:
+        print(f"  Error: {vt_result['error']}")
+    else:
+        print(f"  Malicious votes:  {vt_result['malicious_votes']}")
+        print(f"  Suspicious votes: {vt_result['suspicious_votes']}")
+        print(f"  Harmless votes:   {vt_result['harmless_votes']}")
+        print(f"  Registrar:        {vt_result['registrar']}")
+        print(f"  Reputation score: {vt_result['reputation']}")
+        print(f"  Resolved IP:      {vt_result['resolved_ip'] or 'None found'}")
+
+    if ip_results:
+        vt_ip, abuse_ip = ip_results
+        print(f"\n--- Resolved IP Enrichment ({vt_result['resolved_ip']}) ---")
+        if "error" not in abuse_ip:
+            print(f"  Abuse confidence: {abuse_ip['abuse_confidence']}%")
+            print(f"  Total reports:    {abuse_ip['total_reports']}")
+            print(f"  ISP:              {abuse_ip['isp']}")
+
+    print(f"\n{'='*60}\n")
+
 def display_results(ip, vt_result, abuse_result):
     """Print unified enrichment report."""
     print(f"\n{'='*60}")
@@ -70,10 +130,22 @@ def display_results(ip, vt_result, abuse_result):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python3 ioc_enricher.py <ip_address>")
+        print("Usage: python3 ioc_enricher.py <ip_or_domain>")
         sys.exit(1)
-    ip = sys.argv[1]
-    print(f"Enriching {ip}...")
-    vt = check_virustotal_ip(ip)
-    abuse = check_abuseipdb(ip)
-    display_results(ip, vt, abuse)
+    ioc = sys.argv[1]
+    ioc_type = detect_ioc_type(ioc)
+    print(f"Enriching {ioc} (detected type: {ioc_type})...")
+
+    if ioc_type == "ip":
+        vt = check_virustotal_ip(ioc)
+        abuse = check_abuseipdb(ioc)
+        display_results(ioc, vt, abuse)
+    else:
+        vt = check_virustotal_domain(ioc)
+        ip_results = None
+        if "error" not in vt and vt.get("resolved_ip"):
+            # Bonus: enrich the IP the domain resolves to
+            vt_ip = check_virustotal_ip(vt["resolved_ip"])
+            abuse_ip = check_abuseipdb(vt["resolved_ip"])
+            ip_results = (vt_ip, abuse_ip)
+        display_domain_results(ioc, vt, ip_results)
