@@ -1,0 +1,17 @@
+Enriching 44d88612fea8a8f36de82e1278abb02f (detected type: hash)...
+
+============================================================
+IOC ENRICHMENT REPORT — FILE HASH
+============================================================
+Hash: 44d88612fea8a8f36de82e1278abb02f
+
+--- VirusTotal ---
+  Detection:        64/67 engines flagged malicious
+  Suspicious votes: 0
+  Undetected:       3
+  File type:        Powershell
+  File size:        68 bytes
+  Common name:      eicar.com-8361
+
+============================================================
+
